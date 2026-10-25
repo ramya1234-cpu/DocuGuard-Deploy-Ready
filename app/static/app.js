@@ -147,6 +147,16 @@ async function loadDocuments(search = "") {
   if(!Array.isArray(result))throw new Error("The server returned an unexpected document list.");
   documents=result; renderDocuments();
 }
+async function loadDocumentsAfterAuth() {
+  try {
+    await loadDocuments();
+    return true;
+  } catch (error) {
+    if (!token) throw error;
+    message("Signed in, but documents could not be loaded.", true);
+    return false;
+  }
+}
 function updateAuditButtons() {
   const id=$("auditDocumentSelect")?.value;
   const enabled=Boolean(id);
@@ -208,7 +218,7 @@ $("sidebarHome").addEventListener("click",e=>{e.preventDefault();setView("overvi
 $("logoutBtn").addEventListener("click",logout); $("sidebarLogoutBtn").addEventListener("click",logout);
 document.querySelectorAll("[data-view]").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.view)));
 $("registerForm").addEventListener("submit",e=>{e.preventDefault();const form=e.currentTarget;withBusy(form,async data=>{await api("/auth/register",{method:"POST",body:JSON.stringify({full_name:String(data.get("full_name")).trim(),email:String(data.get("email")).trim(),password:String(data.get("password"))})});form.reset();showAuth("login");message("Account created. Please sign in with your new credentials.");});});
-$("loginForm").addEventListener("submit",e=>{e.preventDefault();const form=e.currentTarget;withBusy(form,async data=>{const result=await api("/auth/login",{method:"POST",body:JSON.stringify({email:String(data.get("email")).trim(),password:String(data.get("password"))})});if(!result.access_token)throw new Error("The server did not return an access token.");token=result.access_token;sessionStorage.setItem(TOKEN_KEY,token);try{currentUser=await api("/auth/me");renderAuth();form.reset();setView("overview");await loadDocuments();message(`Welcome, ${currentUser.full_name}!`);}catch(err){clearSession();renderAuth();showAuth("login");throw err;}});});
+$("loginForm").addEventListener("submit",e=>{e.preventDefault();const form=e.currentTarget;withBusy(form,async data=>{const result=await api("/auth/login",{method:"POST",body:JSON.stringify({email:String(data.get("email")).trim(),password:String(data.get("password"))})});if(!result.access_token)throw new Error("The server did not return an access token.");token=result.access_token;sessionStorage.setItem(TOKEN_KEY,token);try{currentUser=await api("/auth/me");renderAuth();form.reset();setView("overview");if(await loadDocumentsAfterAuth())message(`Welcome, ${currentUser.full_name}!`);}catch(err){clearSession();renderAuth();showAuth("login");throw err;}});});
 $("newUploadBtn").addEventListener("click",()=>{if(!token){showAuth("login");return;}$("uploadDialog").showModal();});
 $("quickUploadBtn").addEventListener("click",()=>$("uploadDialog").showModal());
 $("closeUploadBtn").addEventListener("click",()=>$("uploadDialog").close());$("cancelUploadBtn").addEventListener("click",()=>$("uploadDialog").close());
@@ -228,5 +238,5 @@ $("revokeForm").addEventListener("submit",e=>{e.preventDefault();const form=e.cu
 $("auditDocumentSelect").addEventListener("change",()=>{updateAuditButtons();$("auditEvents").innerHTML=`<div class="empty-state"><span>◷</span><b>Ready to inspect</b><p>Load audit events for the selected document.</p></div>`;$("auditVerification").classList.add("hidden");$("auditOutput").classList.add("hidden");});
 $("auditBtn").addEventListener("click",loadAudit);$("verifyBtn").addEventListener("click",verifyAudit);
 $("yearNow").textContent=new Date().getFullYear();$("landingYear").textContent=new Date().getFullYear();
-async function init(){await checkHealth();if(!token){showLanding();return;}try{currentUser=await api("/auth/me");renderAuth();await loadDocuments();setView("overview");}catch(e){clearSession();renderAuth();showLanding();message(e.message,true);}}
+async function init(){await checkHealth();if(!token){showLanding();return;}try{currentUser=await api("/auth/me");renderAuth();setView("overview");await loadDocumentsAfterAuth();}catch(e){clearSession();renderAuth();showLanding();message(e.message,true);}}
 init();
