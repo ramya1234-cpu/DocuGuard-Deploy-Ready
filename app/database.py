@@ -14,6 +14,7 @@ elif database_url.startswith("postgresql://"):
 
 engine = create_engine(
     database_url,
+    connect_args={"options": "-csearch_path=docuguard"},
     pool_pre_ping=True,
 )
 
